@@ -36,14 +36,16 @@ app.post("/generate", async (req, res) => {
       }
     });
 
-    let finalResult = null;
-
     for await (const event of stream) {
       console.log("📨 Stream event:", event.type);
     }
 
-    finalResult = await stream.done();
-    res.json(finalResult);
+    // The new API returns { data, requestId }
+    const result = await stream.done();
+    const { data, requestId } = result;
+    
+    console.log(`✅ Request ${requestId} completed`);
+    res.json(data);
 
   } catch (err) {
     console.error(err);
