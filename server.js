@@ -27,6 +27,10 @@ app.post("/generate", async (req, res) => {
       output_format = "png"
     } = req.body;
 
+    if (!prompt) {
+      return res.status(400).json({ error: "Prompt is required" });
+    }
+
     const stream = await fal.stream("workflows/0xmpf/api2", {
       input: {
         finetune_id,
@@ -36,16 +40,15 @@ app.post("/generate", async (req, res) => {
       }
     });
 
-    for await (const event of stream) {
-      console.log("📨 Stream event:", event.type);
-    }
+    // Wait for the job to finish
+    const finalResult = await stream.done();
 
-    // The new API returns { data, requestId }
-    const result = await stream.done();
-    const { data, requestId } = result;
-    
-    console.log(`✅ Request ${requestId} completed`);
-    res.json(data);
+    // Send final output JSON back to n8n
+    res.json({
+      success: true,
+      prompt,
+      output: finalResult.output || finalResult
+    });
 
   } catch (err) {
     console.error(err);
