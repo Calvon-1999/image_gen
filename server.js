@@ -1,3 +1,19 @@
+// server.js
+import express from "express";
+import bodyParser from "body-parser";
+import { fal } from "@fal-ai/client";
+
+const app = express();
+app.use(bodyParser.json());
+
+// FAL setup
+fal.config({
+  credentials: process.env.FAL_KEY, // Railway will store this in ENV
+});
+
+// --- ROUTES ---
+
+// Submit generation job
 app.post("/generate", async (req, res) => {
   try {
     const {
@@ -11,14 +27,12 @@ app.post("/generate", async (req, res) => {
       return res.status(400).json({ error: "Missing prompt" });
     }
 
-    // Submit job to FAL
     const submission = await fal.subscribe("workflows/0xmpf/api2", {
       input: { finetune_id, prompt, finetune_strength, output_format },
       logs: false,
       onQueueUpdate: () => {},
     });
 
-    // ✅ Always return request_id
     res.json({
       request_id: submission.request_id,
       status: "submitted"
@@ -28,4 +42,28 @@ app.post("/generate", async (req, res) => {
     console.error(err);
     res.status(500).json({ error: err.message || "Server error" });
   }
+});
+
+// Check job status
+app.get("/status/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await fal.get(`requests/${id}`);
+
+    res.json({
+      request_id: id,
+      status: result.status,
+      output: result.output || null,
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || "Server error" });
+  }
+});
+
+// Start server
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
 });
