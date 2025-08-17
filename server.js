@@ -26,43 +26,46 @@ fal.config({
 
 app.post("/generate", async (req, res) => {
   try {
-    const {
-      prompt,
-      finetune_id = "2b62d438-bd0e-4487-b86a-dac629bab6e0",
-      finetune_strength = 1,
-      output_format = "png",
-    } = req.body;
+    const { prompt, finetune_id, finetune_strength = 1, output_format = "png" } = req.body;
 
-    if (!prompt) {
-      return res.status(400).json({ error: "Missing prompt" });
-    }
+    if (!prompt) return res.status(400).json({ error: "Missing prompt" });
 
     console.log("🐧 Starting generation with prompt:", prompt);
 
-    // Start streaming job
     const stream = await fal.stream("workflows/0xmpf/api2", {
       input: { finetune_id, prompt, finetune_strength, output_format },
     });
 
-    // Log every stream event (debugging)
+    let completionEvent = null;
+
     for await (const event of stream) {
       console.log("📨 Stream event:", JSON.stringify(event, null, 2));
+
+      // Capture the full completion event from flux-pro
+      if (event.type === "completion" && event.node_id === "flux_1_pro_ultra_finetuned") {
+        completionEvent = event;
+      }
     }
 
     console.log("🔄 Finalizing generation...");
-    const result = await stream.done();
+    await stream.done();
+
+    if (!completionEvent) {
+      return res.status(500).json({ error: "No completion event received" });
+    }
 
     console.log("✅ Generation complete!");
-    console.log("🖼️ Result:", JSON.stringify(result, null, 2));
+    console.log("🖼️ Completion Event:", JSON.stringify(completionEvent, null, 2));
 
-    // ✅ Return the full Fal result directly (so n8n sees prompt, seed, etc.)
-    res.json(result);
+    // Return the full completion event exactly like local logs
+    res.json(completionEvent);
 
   } catch (err) {
     console.error("❌ Error in /generate:", err);
     res.status(500).json({ error: err.message || "Server error" });
   }
 });
+
 
 // Start server
 const PORT = process.env.PORT || 3000;
