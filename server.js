@@ -44,9 +44,9 @@ app.post("/generate", async (req, res) => {
       input: { finetune_id, prompt, finetune_strength, output_format },
     });
 
-    // Optional: log progress
+    // Log every stream event (debugging)
     for await (const event of stream) {
-      console.log("📨 Stream event:", event);
+      console.log("📨 Stream event:", JSON.stringify(event, null, 2));
     }
 
     console.log("🔄 Finalizing generation...");
@@ -55,11 +55,8 @@ app.post("/generate", async (req, res) => {
     console.log("✅ Generation complete!");
     console.log("🖼️ Result:", JSON.stringify(result, null, 2));
 
-    // ✅ Return the result in the same format as local logs
-    res.json({
-      type: "completion",
-      output: result.output || result, // handle both shapes
-    });
+    // ✅ Return the full Fal result directly (so n8n sees prompt, seed, etc.)
+    res.json(result);
 
   } catch (err) {
     console.error("❌ Error in /generate:", err);
