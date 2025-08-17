@@ -74,8 +74,10 @@ app.post("/generate", async (req, res) => {
 
     res.json({
       success: true,
-      imageUrl,
-      message: "Generation complete!",
+      imageUrl: falResponse.data.images[0].url,
+      prompt: falResponse.data.prompt,
+      seed: falResponse.data.seed,
+      message: "Generation complete!"
     });
 
   } catch (err) {
