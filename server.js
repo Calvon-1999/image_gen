@@ -24,7 +24,6 @@ fal.config({
 
 // --- ROUTES ---
 
-// Blocking generate (waits for image to complete)
 app.post("/generate", async (req, res) => {
   try {
     const {
@@ -47,11 +46,7 @@ app.post("/generate", async (req, res) => {
 
     // Optional: log progress
     for await (const event of stream) {
-      if (event.type === "progress") {
-        console.log(`⏳ Progress: ${Math.round(event.progress * 100)}%`);
-      } else {
-        console.log("📨 Stream event:", event.type);
-      }
+      console.log("📨 Stream event:", event);
     }
 
     console.log("🔄 Finalizing generation...");
@@ -60,24 +55,10 @@ app.post("/generate", async (req, res) => {
     console.log("✅ Generation complete!");
     console.log("🖼️ Result:", JSON.stringify(result, null, 2));
 
-    // Extract image URL
-    let imageUrl = null;
-    if (result?.output?.images?.length) {
-      imageUrl = result.output.images[0].url;
-    } else if (result?.images?.length) {
-      imageUrl = result.images[0].url;
-    }
-
-    if (!imageUrl) {
-      return res.status(500).json({ error: "No image URL in result", raw: result });
-    }
-
+    // ✅ Return the result in the same format as local logs
     res.json({
-      success: true,
-      imageUrl: falResponse.data.images[0].url,
-      prompt: falResponse.data.prompt,
-      seed: falResponse.data.seed,
-      message: "Generation complete!"
+      type: "completion",
+      output: result.output || result, // handle both shapes
     });
 
   } catch (err) {
