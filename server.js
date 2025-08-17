@@ -27,14 +27,16 @@ app.post("/generate", async (req, res) => {
       return res.status(400).json({ error: "Missing prompt" });
     }
 
+    // Kick off the job
     const submission = await fal.subscribe("workflows/0xmpf/api2", {
       input: { finetune_id, prompt, finetune_strength, output_format },
       logs: false,
-      onQueueUpdate: () => {},
+      onQueueUpdate: () => {}, // you can also log progress here
     });
 
+    // 🔑 submission contains request_id
     res.json({
-      request_id: submission.request_id,
+      request_id: submission.request_id, // <-- this is what you want
       status: "submitted"
     });
 
@@ -43,6 +45,7 @@ app.post("/generate", async (req, res) => {
     res.status(500).json({ error: err.message || "Server error" });
   }
 });
+
 
 // Check job status
 app.get("/status/:id", async (req, res) => {
