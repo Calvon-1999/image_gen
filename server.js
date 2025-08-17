@@ -24,30 +24,58 @@ fal.config({
 
 // --- ROUTES ---
 
-// Submit generation job
+// Blocking generate (waits for image to complete)
 app.post("/generate", async (req, res) => {
   try {
     const {
       prompt,
       finetune_id = "2b62d438-bd0e-4487-b86a-dac629bab6e0",
       finetune_strength = 1,
-      output_format = "png"
+      output_format = "png",
     } = req.body;
 
     if (!prompt) {
       return res.status(400).json({ error: "Missing prompt" });
     }
 
-    // Kick off the job (subscribe = async queue handling)
-    const submission = await fal.subscribe("workflows/0xmpf/api2", {
+    console.log("🐧 Starting generation with prompt:", prompt);
+
+    // Start streaming job
+    const stream = await fal.stream("workflows/0xmpf/api2", {
       input: { finetune_id, prompt, finetune_strength, output_format },
-      logs: false,
-      onQueueUpdate: () => {},
     });
 
+    // Optional: log progress
+    for await (const event of stream) {
+      if (event.type === "progress") {
+        console.log(`⏳ Progress: ${Math.round(event.progress * 100)}%`);
+      } else {
+        console.log("📨 Stream event:", event.type);
+      }
+    }
+
+    console.log("🔄 Finalizing generation...");
+    const result = await stream.done();
+
+    console.log("✅ Generation complete!");
+    console.log("🖼️ Result:", JSON.stringify(result, null, 2));
+
+    // Extract image URL
+    let imageUrl = null;
+    if (result?.output?.images?.length) {
+      imageUrl = result.output.images[0].url;
+    } else if (result?.images?.length) {
+      imageUrl = result.images[0].url;
+    }
+
+    if (!imageUrl) {
+      return res.status(500).json({ error: "No image URL in result", raw: result });
+    }
+
     res.json({
-      request_id: submission.request_id,
-      status: "submitted"
+      success: true,
+      imageUrl,
+      message: "Generation complete!",
     });
 
   } catch (err) {
@@ -55,37 +83,6 @@ app.post("/generate", async (req, res) => {
     res.status(500).json({ error: err.message || "Server error" });
   }
 });
-
-// Check job status
-app.get("/status/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const response = await fetch(`https://fal.run/requests/${id}`, {
-      headers: {
-        "Authorization": `Key ${process.env.FAL_KEY}`,
-        "Content-Type": "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`FAL API error: ${errorText}`);
-    }
-
-    const result = await response.json();
-
-    res.json({
-      request_id: id,
-      status: result.status,
-      output: result.output || null,
-    });
-  } catch (err) {
-    console.error("❌ Error in /status:", err);
-    res.status(500).json({ error: err.message || "Server error" });
-  }
-});
-
 
 // Start server
 const PORT = process.env.PORT || 3000;
