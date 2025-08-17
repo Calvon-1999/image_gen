@@ -27,27 +27,15 @@ app.post("/generate", async (req, res) => {
       return res.status(400).json({ error: "Missing prompt" });
     }
 
-    // Start the job with stream
-    const stream = await fal.stream("workflows/0xmpf/api2", {
+    // Kick off the job
+    const submission = await fal.subscribe("workflows/0xmpf/api2", {
       input: { finetune_id, prompt, finetune_strength, output_format },
+      logs: false,
+      onQueueUpdate: () => {},
     });
 
-    let requestId = null;
-
-    // Grab the first event with request_id
-    for await (const event of stream) {
-      if (event.type === "submit") {
-        requestId = event.request_id;
-        break;
-      }
-    }
-
-    if (!requestId) {
-      return res.status(500).json({ error: "No request_id returned from FAL" });
-    }
-
     res.json({
-      request_id: requestId,
+      request_id: submission.request_id,
       status: "submitted"
     });
 
@@ -56,6 +44,7 @@ app.post("/generate", async (req, res) => {
     res.status(500).json({ error: err.message || "Server error" });
   }
 });
+
 
 // Check job status
 app.get("/status/:id", async (req, res) => {
