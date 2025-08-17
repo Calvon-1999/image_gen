@@ -50,19 +50,33 @@ app.post("/generate", async (req, res) => {
 app.get("/status/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await fal.get(`requests/${id}`);
+
+    // Call FAL REST API directly
+    const response = await fetch(`https://api.fal.ai/requests/${id}`, {
+      headers: {
+        "Authorization": `Key ${process.env.FAL_KEY}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`FAL API error: ${errorText}`);
+    }
+
+    const result = await response.json();
 
     res.json({
       request_id: id,
       status: result.status,
       output: result.output || null,
     });
-
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || "Server error" });
   }
 });
+
 
 // Start server
 const PORT = process.env.PORT || 3000;
