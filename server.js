@@ -61,7 +61,7 @@ app.get("/status/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
-    const response = await fetch(`https://api.fal.ai/requests/${id}`, {
+    const response = await fetch(`https://fal.run/requests/${id}`, {
       headers: {
         "Authorization": `Key ${process.env.FAL_KEY}`,
         "Content-Type": "application/json",
@@ -85,6 +85,7 @@ app.get("/status/:id", async (req, res) => {
     res.status(500).json({ error: err.message || "Server error" });
   }
 });
+
 
 // Start server
 const PORT = process.env.PORT || 3000;
