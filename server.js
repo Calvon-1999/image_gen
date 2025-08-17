@@ -1,14 +1,25 @@
 // server.js
 import express from "express";
 import bodyParser from "body-parser";
+import cors from "cors";
 import { fal } from "@fal-ai/client";
+import fetch, { Headers, Request, Response } from "node-fetch";
+
+// Polyfill fetch for Node
+if (!global.fetch) {
+  global.fetch = fetch;
+  global.Headers = Headers;
+  global.Request = Request;
+  global.Response = Response;
+}
 
 const app = express();
+app.use(cors());
 app.use(bodyParser.json());
 
 // FAL setup
 fal.config({
-  credentials: process.env.FAL_KEY, // Railway will store this in ENV
+  credentials: process.env.FAL_KEY, // Railway ENV variable
 });
 
 // --- ROUTES ---
@@ -27,7 +38,7 @@ app.post("/generate", async (req, res) => {
       return res.status(400).json({ error: "Missing prompt" });
     }
 
-    // Kick off the job
+    // Kick off the job (subscribe = async queue handling)
     const submission = await fal.subscribe("workflows/0xmpf/api2", {
       input: { finetune_id, prompt, finetune_strength, output_format },
       logs: false,
@@ -40,18 +51,16 @@ app.post("/generate", async (req, res) => {
     });
 
   } catch (err) {
-    console.error(err);
+    console.error("❌ Error in /generate:", err);
     res.status(500).json({ error: err.message || "Server error" });
   }
 });
-
 
 // Check job status
 app.get("/status/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Call FAL REST API directly
     const response = await fetch(`https://api.fal.ai/requests/${id}`, {
       headers: {
         "Authorization": `Key ${process.env.FAL_KEY}`,
@@ -72,11 +81,10 @@ app.get("/status/:id", async (req, res) => {
       output: result.output || null,
     });
   } catch (err) {
-    console.error(err);
+    console.error("❌ Error in /status:", err);
     res.status(500).json({ error: err.message || "Server error" });
   }
 });
-
 
 // Start server
 const PORT = process.env.PORT || 3000;
